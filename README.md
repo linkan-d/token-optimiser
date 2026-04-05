@@ -4,8 +4,6 @@
 
 No LLM. No API calls. No sign-up. No installation. Pure JavaScript.
 
-![Token Optimiser](screenshot-hero.png)
-<!-- Replace screenshot-hero.png with your actual hero screenshot -->
 
 ---
 
