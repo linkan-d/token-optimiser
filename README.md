@@ -265,41 +265,6 @@ Token Optimiser is rule-based, not semantic. It does not understand meaning — 
 
 ---
 
-## Contributing
-
-Contributions welcome. Areas where help would be valuable:
-
-- Additional stopword profiles for non-English languages
-- Expanded security product and alert type dictionaries
-- Improved sub-question extraction logic
-- Additional domain profiles (Healthcare, Finance, HR)
-- Unit tests for transformation functions
-
-Please open an issue before submitting a PR for significant changes.
-
----
-
-## Roadmap
-
-- [ ] Model-accurate tokenisation (tiktoken WASM integration)
-- [ ] Browser extension (Chrome / Edge)
-- [ ] Prompt template library for common use cases
-- [ ] Team/shared prompt library (optional backend)
-- [ ] Before/after prompt quality score
-
----
-
-## Author
-
-**Linkan Dash**
-Solutions Architect at Elastic — Security, SIEM & AI Analytics
-
-Working with enterprise security teams across the UK to build practical, cost-effective AI and security operations platforms.
-
-- LinkedIn: [linkedin.com/in/linkandash](https://linkedin.com/in/linkandash)
-- Elastic: [elastic.co](https://elastic.co)
-
----
 
 ## Related Blog Post
 
