@@ -5,6 +5,8 @@
 No LLM. No API calls. No sign-up. No installation. Pure JavaScript.
 
 
+![Token Optimiser](tokenoptimiser.png)
+
 ---
 
 ## Why This Exists
