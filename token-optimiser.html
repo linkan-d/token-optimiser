@@ -1,0 +1,2219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Token Optimiser</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    /* ============================================================
+       RESET & ROOT VARIABLES
+       ============================================================ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #f0f4fb;
+      --surface:      #ffffff;
+      --surface-2:    #f8faff;
+      --border:       #dde3f0;
+      --primary:      #2563eb;
+      --primary-hov:  #1d4ed8;
+      --primary-lt:   #eff6ff;
+      --text:         #1e293b;
+      --text-2:       #475569;
+      --muted:        #94a3b8;
+      --success:      #10b981;
+      --warning:      #f59e0b;
+      --danger:       #ef4444;
+      --rem-bg:       #fee2e2;
+      --rem-txt:      #991b1b;
+      --radius:       12px;
+      --radius-sm:    8px;
+      --shadow:       0 1px 3px rgba(0,0,0,.07), 0 4px 16px rgba(37,99,235,.06);
+      --font:         'DM Sans', system-ui, sans-serif;
+      --mono:         'JetBrains Mono', 'Courier New', monospace;
+    }
+
+    html { font-size: 15px; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.6;
+    }
+
+    /* ============================================================
+       HEADER
+       ============================================================ */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 1.75rem;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      gap: .9rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 1px 0 var(--border), 0 4px 20px rgba(37,99,235,.04);
+    }
+
+    .logo {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, #2563eb, #1e40af);
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .logo svg { width: 20px; height: 20px; }
+
+    .app-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -.025em;
+      color: var(--text);
+    }
+    .app-title em { color: var(--primary); font-style: normal; }
+
+    .badge {
+      background: var(--primary-lt);
+      color: var(--primary);
+      font-size: .68rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 99px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      border: 1px solid #bfdbfe;
+    }
+
+    .header-sub {
+      margin-left: auto;
+      font-size: .78rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    /* ============================================================
+       MAIN WRAPPER
+       ============================================================ */
+    .main {
+      flex: 1;
+      padding: 1.4rem 1.75rem;
+      max-width: 1540px;
+      margin: 0 auto;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 1.1rem;
+    }
+
+    /* ============================================================
+       CONTROLS BAR
+       ============================================================ */
+    .controls {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: .85rem 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      flex-wrap: wrap;
+      box-shadow: var(--shadow);
+    }
+
+    .ctrl-label {
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .09em;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    /* Mode segmented control */
+    .mode-group {
+      display: flex;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+
+    .mode-btn {
+      padding: .38rem .95rem;
+      font-size: .8rem;
+      font-weight: 600;
+      font-family: var(--font);
+      border: none;
+      background: transparent;
+      color: var(--text-2);
+      cursor: pointer;
+      transition: background .13s, color .13s;
+      white-space: nowrap;
+    }
+
+    .mode-btn:not(:last-child) { border-right: 1px solid var(--border); }
+
+    .mode-btn.active { background: var(--primary); color: #fff; }
+
+    .mode-btn:not(.active):hover { background: var(--primary-lt); color: var(--primary); }
+
+    /* Divider */
+    .sep { width: 1px; height: 26px; background: var(--border); flex-shrink: 0; }
+
+    /* Toggle options */
+    .toggles { display: flex; gap: .65rem; flex-wrap: wrap; }
+
+    .tog {
+      display: flex; align-items: center; gap: .35rem;
+      cursor: pointer;
+      font-size: .8rem;
+      color: var(--text-2);
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    .tog input[type="checkbox"] {
+      width: 14px; height: 14px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    .tog.dim { opacity: .38; pointer-events: none; }
+
+    /* Domain selector row — visible only in Structure mode */
+    .domain-row {
+      display: none;
+      align-items: center;
+      gap: .65rem;
+      width: 100%;
+      padding-top: .7rem;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .domain-row.show { display: flex; }
+
+    select.domain-sel {
+      font-family: var(--font);
+      font-size: .8rem;
+      font-weight: 600;
+      color: var(--text-2);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: .38rem .75rem;
+      cursor: pointer;
+      outline: none;
+      min-width: 200px;
+    }
+    select.domain-sel:focus { border-color: var(--primary); }
+
+    .struct-hint {
+      font-size: .74rem;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    /* ============================================================
+       WORKSPACE — two panels side by side
+       ============================================================ */
+    .workspace {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.1rem;
+    }
+
+    /* ============================================================
+       PANEL
+       ============================================================ */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 440px;
+    }
+
+    .panel-head {
+      padding: .65rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-2);
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      flex-shrink: 0;
+    }
+
+    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    .panel-label {
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: var(--text-2);
+    }
+
+    .panel-count {
+      margin-left: auto;
+      font-size: .72rem;
+      font-family: var(--mono);
+      color: var(--muted);
+    }
+
+    textarea {
+      flex: 1;
+      width: 100%;
+      min-height: 300px;
+      border: none;
+      outline: none;
+      resize: vertical;
+      padding: 1rem;
+      font-family: var(--mono);
+      font-size: .8rem;
+      line-height: 1.75;
+      color: var(--text);
+      background: var(--surface);
+    }
+
+    textarea::placeholder { color: var(--muted); }
+    textarea:focus { background: #fefeff; }
+
+    /* Panel footer / action row */
+    .panel-foot {
+      padding: .65rem 1rem;
+      border-top: 1px solid var(--border);
+      background: var(--surface-2);
+      display: flex;
+      gap: .5rem;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    /* ============================================================
+       OUTPUT TABS
+       ============================================================ */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-2);
+      flex-shrink: 0;
+    }
+
+    .tab-btn {
+      padding: .55rem 1.1rem;
+      font-size: .78rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color .13s, border-color .13s;
+      font-family: var(--font);
+    }
+
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.on { color: var(--primary); border-bottom-color: var(--primary); }
+
+    .tab-pane { display: none; flex: 1; flex-direction: column; }
+    .tab-pane.on { display: flex; }
+
+    /* Diff view */
+    .diff-box {
+      flex: 1;
+      padding: 1rem;
+      font-family: var(--mono);
+      font-size: .8rem;
+      line-height: 1.85;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--text-2);
+      min-height: 300px;
+    }
+
+    .diff-empty {
+      height: 100%;
+      min-height: 300px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: .85rem;
+      font-family: var(--font);
+      font-style: italic;
+    }
+
+    del.gone {
+      background: var(--rem-bg);
+      color: var(--rem-txt);
+      text-decoration: line-through;
+      border-radius: 3px;
+      padding: 0 2px;
+    }
+
+    /* ============================================================
+       BUTTONS
+       ============================================================ */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      padding: .48rem 1.05rem;
+      font-family: var(--font);
+      font-size: .82rem;
+      font-weight: 700;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background .13s, transform .1s, box-shadow .13s;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+    .btn-primary:hover {
+      background: var(--primary-hov);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(37,99,235,.35);
+    }
+    .btn-primary:active { transform: none; box-shadow: none; }
+
+    .btn-ghost {
+      background: var(--bg);
+      color: var(--text-2);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover {
+      background: var(--primary-lt);
+      color: var(--primary);
+      border-color: #bfdbfe;
+    }
+
+    .btn-sm { padding: .3rem .72rem; font-size: .75rem; }
+
+    .btn:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+
+    /* ============================================================
+       STATS ROW
+       ============================================================ */
+    .stats {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      display: flex;
+    }
+
+    .stat {
+      flex: 1;
+      padding: .85rem 1rem;
+      text-align: center;
+      position: relative;
+    }
+
+    .stat:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      right: 0; top: 12%; height: 76%;
+      width: 1px;
+      background: var(--border);
+    }
+
+    .stat-lbl {
+      font-size: .68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted);
+      margin-bottom: .3rem;
+    }
+
+    .stat-val {
+      font-size: 1.65rem;
+      font-weight: 700;
+      font-family: var(--mono);
+      letter-spacing: -.03em;
+      line-height: 1.1;
+    }
+
+    .stat-val.v-before { color: var(--text); }
+    .stat-val.v-after  { color: var(--success); }
+    .stat-val.v-pct    { color: var(--primary); }
+    .stat-val.v-saved  { color: var(--warning); }
+
+    .stat-sub {
+      font-size: .68rem;
+      color: var(--muted);
+      margin-top: .2rem;
+    }
+
+    /* ============================================================
+       WARNING BANNER
+       ============================================================ */
+    .warn {
+      display: none;
+      align-items: center;
+      gap: .55rem;
+      padding: .65rem 1rem;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: var(--radius-sm);
+      font-size: .78rem;
+      color: #92400e;
+    }
+    .warn.show { display: flex; }
+    .warn strong { font-weight: 700; }
+
+    /* ============================================================
+       FOOTER
+       ============================================================ */
+    .footer {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: .85rem 1.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .55rem;
+      font-size: .75rem;
+      color: var(--muted);
+    }
+
+    .footer strong { color: var(--text-2); font-weight: 600; }
+
+    .fdot {
+      width: 3px; height: 3px;
+      border-radius: 50%;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+
+    /* ============================================================
+       TOAST
+       ============================================================ */
+    .toast {
+      position: fixed;
+      bottom: 1.75rem;
+      right: 1.75rem;
+      background: var(--text);
+      color: #fff;
+      padding: .55rem 1rem;
+      border-radius: var(--radius-sm);
+      font-size: .8rem;
+      font-weight: 600;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity .2s, transform .2s;
+      pointer-events: none;
+      z-index: 999;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    /* ============================================================
+       RESPONSIVE — MOBILE FIRST
+       ============================================================ */
+    @media (max-width: 880px) {
+      .workspace { grid-template-columns: 1fr; }
+      .main { padding: 1rem; gap: .85rem; }
+      .header { padding: 0 1rem; }
+      .header-sub { display: none; }
+      .stats { flex-wrap: wrap; }
+      .stat { min-width: 47%; }
+      .cost-box { flex-direction: column; gap: .75rem; }
+      .cost-col { border-right: none !important; border-bottom: 1px solid var(--border); padding-bottom: .75rem; }
+      .cost-col:last-child { border-bottom: none; }
+    }
+
+    @media (max-width: 640px) {
+      html { font-size: 14px; }
+      .mode-btn { padding: .32rem .55rem; font-size: .72rem; }
+      .ctrl-label { display: none; }
+      .toggles { gap: .5rem; }
+      .tog { font-size: .75rem; }
+      .badge { display: none; }
+      .panel { min-height: 300px; }
+      textarea { min-height: 200px; font-size: .78rem; }
+      .stat { min-width: 100%; }
+      .stat:not(:last-child)::after { display: none; }
+      .stat { border-bottom: 1px solid var(--border); }
+      .btn-sm { padding: .28rem .6rem; font-size: .72rem; }
+    }
+
+    /* ============================================================
+       CODE DETECTION BADGE
+       ============================================================ */
+    .code-badge {
+      display: none;
+      align-items: center;
+      gap: .35rem;
+      font-size: .7rem;
+      font-weight: 700;
+      color: #7c3aed;
+      background: #f5f3ff;
+      border: 1px solid #ddd6fe;
+      border-radius: 99px;
+      padding: 2px 8px;
+      letter-spacing: .04em;
+    }
+    .code-badge.show { display: flex; }
+
+    /* ============================================================
+       SIZE WARNING
+       ============================================================ */
+    .size-warn {
+      display: none;
+      align-items: center;
+      gap: .5rem;
+      padding: .5rem .85rem;
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      border-radius: var(--radius-sm);
+      font-size: .75rem;
+      color: #9a3412;
+      margin: 0 1rem .5rem;
+    }
+    .size-warn.show { display: flex; }
+
+    /* ============================================================
+       FIRST-RUN TIP BANNER
+       ============================================================ */
+    .tip-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: .75rem;
+      padding: .85rem 1.1rem;
+      background: var(--primary-lt);
+      border: 1px solid #bfdbfe;
+      border-radius: var(--radius);
+      font-size: .8rem;
+      color: #1e40af;
+      line-height: 1.5;
+    }
+    .tip-banner.hide { display: none; }
+    .tip-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: .05rem; }
+    .tip-close {
+      margin-left: auto;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #93c5fd;
+      font-size: 1rem;
+      padding: 0 .25rem;
+      flex-shrink: 0;
+    }
+    .tip-close:hover { color: #1e40af; }
+
+    /* ============================================================
+       COST CALCULATOR
+       ============================================================ */
+    .cost-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: stretch;
+    }
+
+    .cost-col {
+      flex: 1;
+      padding: .85rem 1.1rem;
+      display: flex;
+      flex-direction: column;
+      gap: .35rem;
+      border-right: 1px solid var(--border);
+    }
+    .cost-col:last-child { border-right: none; }
+
+    .cost-lbl {
+      font-size: .68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted);
+    }
+
+    .cost-val {
+      font-size: 1.1rem;
+      font-weight: 700;
+      font-family: var(--mono);
+      color: var(--text);
+    }
+
+    .cost-val.green { color: var(--success); }
+    .cost-val.blue  { color: var(--primary); }
+
+    .cost-sub {
+      font-size: .68rem;
+      color: var(--muted);
+    }
+
+    .cost-model-wrap {
+      display: flex;
+      align-items: center;
+      gap: .65rem;
+      padding: .85rem 1.1rem;
+      border-right: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    select.model-sel {
+      font-family: var(--font);
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--text-2);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: .35rem .65rem;
+      cursor: pointer;
+      outline: none;
+    }
+    select.model-sel:focus { border-color: var(--primary); }
+
+    .disclaimer {
+      font-size: .68rem;
+      color: var(--muted);
+      text-align: center;
+      padding: .25rem 0;
+      font-style: italic;
+    }
+
+    /* ============================================================
+       COMPARE PANEL
+       ============================================================ */
+    .compare-panel {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .compare-panel.show { display: block; }
+
+    .compare-header {
+      padding: .65rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-2);
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      flex-wrap: wrap;
+    }
+
+    .compare-title {
+      font-size: .78rem;
+      font-weight: 700;
+      color: var(--text-2);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    .compare-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .cmp-col {
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+    }
+    .cmp-col:last-child { border-right: none; }
+
+    .cmp-head {
+      padding: .5rem .75rem;
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .cmp-mode {
+      font-size: .78rem;
+      font-weight: 700;
+      color: var(--text-2);
+      margin-bottom: .15rem;
+    }
+
+    .cmp-stat {
+      font-size: .68rem;
+      font-family: var(--mono);
+      color: var(--muted);
+    }
+    .cmp-stat.good { color: var(--success); font-weight: 600; }
+
+    .cmp-ta {
+      flex: 1;
+      width: 100%;
+      min-height: 160px;
+      border: none;
+      outline: none;
+      resize: none;
+      padding: .75rem;
+      font-family: var(--mono);
+      font-size: .72rem;
+      line-height: 1.65;
+      color: var(--text-2);
+      background: var(--surface);
+    }
+
+    @media (max-width: 880px) {
+      .compare-grid { grid-template-columns: 1fr 1fr; }
+      .cmp-col:nth-child(2) { border-right: none; }
+      .cmp-col:nth-child(3) { border-top: 1px solid var(--border); }
+      .cmp-col:nth-child(4) { border-top: 1px solid var(--border); border-right: none; }
+    }
+    @media (max-width: 560px) {
+      .compare-grid { grid-template-columns: 1fr; }
+      .cmp-col { border-right: none; border-bottom: 1px solid var(--border); }
+      .cmp-col:last-child { border-bottom: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ============================================================
+     HEADER
+     ============================================================ -->
+<header class="header">
+  <div class="logo">
+    <!-- Lightning bolt icon — symbolises compression/speed -->
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"
+            fill="#ffffff" stroke="#ffffff" stroke-width="1.4" stroke-linejoin="round"/>
+    </svg>
+  </div>
+  <h1 class="app-title">Token <em>Optimiser</em></h1>
+  <span class="badge">No LLM · Local Only</span>
+  <span class="header-sub">Reduce token usage before sending to paid AI APIs</span>
+</header>
+
+<!-- ============================================================
+     MAIN
+     ============================================================ -->
+<main class="main">
+
+  <!-- ── CONTROLS BAR ─────────────────────────────────────────── -->
+  <div class="controls">
+
+    <span class="ctrl-label">Mode</span>
+
+    <div class="mode-group" role="group" aria-label="Optimisation mode">
+      <button class="mode-btn active" data-mode="light"
+              title="Whitespace cleanup + filler phrase removal only">
+        💡 Light
+      </button>
+      <button class="mode-btn" data-mode="medium"
+              title="Light + stopword removal + duplicate sentence detection">
+        ⚙️ Medium
+      </button>
+      <button class="mode-btn" data-mode="aggressive"
+              title="Full compression — may alter meaning. Review diff carefully.">
+        🔥 Aggressive
+      </button>
+      <button class="mode-btn" data-mode="structure"
+              title="Rewrites verbose text into structured labelled sections — facts, questions, urgency">
+        ⚡ Structure
+      </button>
+    </div>
+
+    <div class="sep"></div>
+    <span class="ctrl-label">Options</span>
+
+    <div class="toggles">
+      <label class="tog" id="tog-fillers">
+        <input type="checkbox" id="opt-fillers" checked> Filler phrases
+      </label>
+      <label class="tog" id="tog-compress">
+        <input type="checkbox" id="opt-compress" checked> Phrase compression
+      </label>
+      <label class="tog" id="tog-stop">
+        <input type="checkbox" id="opt-stop" checked> Stopwords
+      </label>
+      <label class="tog" id="tog-dedup">
+        <input type="checkbox" id="opt-dedup" checked> Dedup sentences
+      </label>
+      <label class="tog" id="tog-adjadv">
+        <input type="checkbox" id="opt-adjadv"> Adj / Adv removal
+      </label>
+      <label class="tog" id="tog-bullets">
+        <input type="checkbox" id="opt-bullets"> Convert to bullets
+      </label>
+    </div>
+
+    <!-- Domain selector — shown only in Structure mode -->
+    <div class="domain-row" id="domain-row">
+      <span class="ctrl-label">Domain</span>
+      <select class="domain-sel" id="domain-sel">
+        <option value="security" selected>🔒 Security / SIEM</option>
+        <option value="general">🌐 General</option>
+        <option value="devops">⚙️ DevOps / Engineering</option>
+        <option value="business">💼 Business / Management</option>
+        <option value="legal">⚖️ Legal / Compliance</option>
+      </select>
+      <span class="struct-hint">Extracts facts, questions &amp; urgency into labelled sections — produces structured prompt output, not stripped prose</span>
+    </div>
+
+  </div>
+
+  <!-- ── WORKSPACE ────────────────────────────────────────────── -->
+  <div class="workspace">
+
+    <!-- INPUT PANEL -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="dot" style="background:#94a3b8"></div>
+        <span class="panel-label">Input Text</span>
+        <span class="panel-count" id="in-count">0 chars · ~0 tokens</span>
+        <span class="code-badge" id="code-badge">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          Code detected
+        </span>
+      </div>
+
+      <div class="size-warn" id="size-warn">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Large input detected — compression may be slow. Consider trimming before optimising.
+      </div>
+
+      <textarea id="input-text"
+        placeholder="Paste your text here — a prompt, document, email, or any content you plan to send to a paid AI API (GPT-4, Claude, Gemini, etc.)…&#10;&#10;Tip: Click 'Load Example' to see a real SIEM security alert demo."></textarea>
+
+      <div class="panel-foot">
+        <button class="btn btn-primary" id="btn-run">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+          </svg>
+          Optimise Tokens
+        </button>
+        <button class="btn btn-ghost btn-sm" id="btn-example">⚡ Load Example</button>
+        <button class="btn btn-ghost btn-sm" id="btn-reset">↺ Reset</button>
+      </div>
+    </div>
+
+    <!-- OUTPUT PANEL -->
+    <div class="panel">
+
+      <!-- Tab bar -->
+      <div class="tabs">
+        <button class="tab-btn on" data-tab="out">Output</button>
+        <button class="tab-btn"    data-tab="diff">Diff View</button>
+      </div>
+
+      <!-- Output pane -->
+      <div class="tab-pane on" id="tab-out">
+        <div class="panel-head">
+          <div class="dot" style="background:#10b981"></div>
+          <span class="panel-label">Optimised Text</span>
+          <span class="panel-count" id="out-count">0 chars · ~0 tokens</span>
+        </div>
+        <textarea id="output-text" readonly
+          placeholder="Optimised text will appear here…"></textarea>
+      </div>
+
+      <!-- Diff pane -->
+      <div class="tab-pane" id="tab-diff">
+        <div class="panel-head">
+          <div class="dot" style="background:#ef4444"></div>
+          <span class="panel-label">Changes</span>
+          <span class="panel-count">
+            <span style="background:#fee2e2;color:#991b1b;padding:1px 7px;
+                         border-radius:4px;font-size:.68rem;font-weight:700;">
+              removed
+            </span>
+          </span>
+        </div>
+        <div class="diff-box" id="diff-box">
+          <div class="diff-empty">Run optimisation to see diff</div>
+        </div>
+      </div>
+
+      <!-- Output actions -->
+      <div class="panel-foot">
+        <button class="btn btn-ghost btn-sm" id="btn-copy" disabled>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.2">
+            <rect x="9" y="9" width="13" height="13" rx="2"/>
+            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+          </svg>
+          Copy
+        </button>
+        <button class="btn btn-ghost btn-sm" id="btn-export" disabled>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Export .txt
+        </button>
+        <button class="btn btn-ghost btn-sm" id="btn-compare" style="margin-left:auto;">
+          ⊞ Compare All Modes
+        </button>
+      </div>
+
+    </div><!-- /output panel -->
+  </div><!-- /workspace -->
+
+  <!-- ── FIRST-RUN TIP ─────────────────────────────────────────── -->
+  <div class="tip-banner" id="tip-banner">
+    <span class="tip-icon">💡</span>
+    <span>
+      <strong>Getting started:</strong> Click <strong>⚡ Load Example</strong> in the Input panel to see a real SOC alert triage prompt — then hit <strong>Optimise Tokens</strong> in each mode to compare results. Try <strong>⚡ Structure</strong> mode last for the most dramatic transformation.
+    </span>
+    <button class="tip-close" id="tip-close" title="Dismiss">✕</button>
+  </div>
+
+  <!-- ── STATS ROW ─────────────────────────────────────────────── -->
+  <div class="stats" aria-label="Token usage statistics">
+    <div class="stat">
+      <div class="stat-lbl">Tokens Before</div>
+      <div class="stat-val v-before" id="s-before">—</div>
+      <div class="stat-sub" id="s-before-c">0 characters</div>
+    </div>
+    <div class="stat">
+      <div class="stat-lbl">Tokens After</div>
+      <div class="stat-val v-after" id="s-after">—</div>
+      <div class="stat-sub" id="s-after-c">0 characters</div>
+    </div>
+    <div class="stat">
+      <div class="stat-lbl">Reduction</div>
+      <div class="stat-val v-pct" id="s-pct">—</div>
+      <div class="stat-sub">percentage saved</div>
+    </div>
+    <div class="stat">
+      <div class="stat-lbl">Tokens Saved</div>
+      <div class="stat-val v-saved" id="s-saved">—</div>
+      <div class="stat-sub">estimated saving</div>
+    </div>
+  </div>
+
+  <p class="disclaimer">Token counts are estimates using a 4-chars-per-token heuristic. Actual costs vary by model and tokeniser (GPT-4o, Claude, Gemini all differ).</p>
+
+  <!-- ── COST CALCULATOR ───────────────────────────────────────── -->
+  <div class="cost-box">
+    <div class="cost-model-wrap">
+      <span class="ctrl-label" style="white-space:nowrap;">AI Model</span>
+      <select class="model-sel" id="model-sel">
+        <option value="2.50">GPT-4o ($2.50/M)</option>
+        <option value="10.00">GPT-4 Turbo ($10/M)</option>
+        <option value="3.00">Claude Sonnet ($3/M)</option>
+        <option value="0.80">Claude Haiku ($0.80/M)</option>
+        <option value="1.25">Gemini 1.5 Pro ($1.25/M)</option>
+        <option value="0.075">Gemini Flash ($0.075/M)</option>
+      </select>
+    </div>
+    <div class="cost-col">
+      <div class="cost-lbl">Cost per query (before)</div>
+      <div class="cost-val" id="c-before">—</div>
+      <div class="cost-sub" id="c-before-day">per query unoptimised</div>
+    </div>
+    <div class="cost-col">
+      <div class="cost-lbl">Cost per query (after)</div>
+      <div class="cost-val green" id="c-after">—</div>
+      <div class="cost-sub" id="c-after-day">per query optimised</div>
+    </div>
+    <div class="cost-col">
+      <div class="cost-lbl">Daily saving (200 queries)</div>
+      <div class="cost-val blue" id="c-daily">—</div>
+      <div class="cost-sub" id="c-monthly">estimated per month</div>
+    </div>
+  </div>
+
+  <p class="disclaimer">Token counts are estimates using a 4-char / 0.75-word heuristic. Actual costs vary by model and tokeniser — check your provider's pricing for exact figures. Cost calculations assume input tokens only.</p>
+
+  <!-- ── COMPARE ALL MODES ─────────────────────────────────────── -->
+  <div class="compare-panel" id="compare-panel">
+    <div class="compare-header">
+      <span class="compare-title">All Modes — Side by Side</span>
+      <span style="font-size:.72rem;color:var(--muted);font-style:italic;">Same input, all four modes run simultaneously</span>
+      <button class="btn btn-ghost btn-sm" id="btn-compare-close" style="margin-left:auto;">✕ Close</button>
+    </div>
+    <div class="compare-grid">
+      <div class="cmp-col">
+        <div class="cmp-head">
+          <div class="cmp-mode">💡 Light</div>
+          <div class="cmp-stat" id="cmp-stat-light">run to see stats</div>
+        </div>
+        <textarea class="cmp-ta" id="cmp-ta-light" readonly placeholder="Light mode output…"></textarea>
+      </div>
+      <div class="cmp-col">
+        <div class="cmp-head">
+          <div class="cmp-mode">⚙️ Medium</div>
+          <div class="cmp-stat" id="cmp-stat-medium">run to see stats</div>
+        </div>
+        <textarea class="cmp-ta" id="cmp-ta-medium" readonly placeholder="Medium mode output…"></textarea>
+      </div>
+      <div class="cmp-col">
+        <div class="cmp-head">
+          <div class="cmp-mode">🔥 Aggressive</div>
+          <div class="cmp-stat" id="cmp-stat-aggressive">run to see stats</div>
+        </div>
+        <textarea class="cmp-ta" id="cmp-ta-aggressive" readonly placeholder="Aggressive mode output…"></textarea>
+      </div>
+      <div class="cmp-col">
+        <div class="cmp-head">
+          <div class="cmp-mode">⚡ Structure</div>
+          <div class="cmp-stat" id="cmp-stat-structure">run to see stats</div>
+        </div>
+        <textarea class="cmp-ta" id="cmp-ta-structure" readonly placeholder="Structure mode output…"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── WARNING BANNER ───────────────────────────────────────── -->
+  <div class="warn" id="warn-banner">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+         stroke="#92400e" stroke-width="2">
+      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+      <line x1="12" y1="9"  x2="12"   y2="13"/>
+      <line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg>
+    <span>
+      <strong>High compression detected.</strong>
+      Reduction exceeds 40% — review the Diff tab carefully before using the output.
+    </span>
+  </div>
+
+</main>
+
+<!-- ============================================================
+     FOOTER
+     ============================================================ -->
+<footer class="footer">
+  <span>Token Optimiser</span>
+  <div class="fdot"></div>
+  <span>No LLM · No API · 100% browser-local</span>
+  <div class="fdot"></div>
+  <span>By: <strong>Linkan Dash</strong></span>
+</footer>
+
+<!-- Toast notification -->
+<div class="toast" id="toast"></div>
+
+
+<!-- ============================================================
+     JAVASCRIPT — Pure deterministic logic, zero external deps
+     Author: Linkan Dash
+     ============================================================ -->
+<script>
+"use strict";
+
+/* ----------------------------------------------------------------
+   1. STOPWORDS LIST
+   Common English words that carry little semantic weight in prompts.
+   Smart removal skips very short lines to preserve meaning.
+---------------------------------------------------------------- */
+const STOPWORDS = new Set([
+  'a','an','the','and','or','but','if','in','on','at','to','for','of','with','by',
+  'from','up','about','into','through','during','is','are','was','were','be','been',
+  'being','have','has','had','do','does','did','will','would','could','should','may',
+  'might','shall','can','it','its','itself','this','that','these','those','i','me',
+  'my','myself','we','our','ours','ourselves','you','your','yours','yourself','he',
+  'him','his','himself','she','her','hers','herself','they','them','their','theirs',
+  'themselves','what','which','who','whom','when','where','why','how','all','both',
+  'each','few','more','most','other','some','such','no','nor','not','only','same',
+  'so','than','too','just','as','also','then','there','here','now','still','yet',
+  'any','once','again','further','while','although','since','before','after','above',
+  'below','between','over','under','own','off','out','am','much','many',
+]);
+
+/* ----------------------------------------------------------------
+   PROTECTED WORDS — prepositions / connectors that glue phrases.
+   These are in STOPWORDS above but MUST NOT be removed because
+   stripping them breaks grammar (e.g. "log sources from a wide
+   variety of systems" must not become "log sources wide variety
+   systems"). Always checked before stopword removal.
+---------------------------------------------------------------- */
+const PROTECTED = new Set([
+  'to','from','of','with','at','by','in','on','into','through',
+  'across','above','below','between','over','under','during',
+  'about','for','against','along','among','around','near','per',
+  'without','within','except','including','following','versus',
+]);
+
+/* ----------------------------------------------------------------
+   2. FILLER PHRASES
+   Verbose words/phrases that add length but not meaning.
+   Each pattern is applied via regex replace → empty string.
+---------------------------------------------------------------- */
+const FILLERS = [
+  /\b(basically|essentially|fundamentally)\b/gi,
+  /\b(kind of|sort of|type of)\b/gi,
+  /\bin order to\b/gi,
+  /\b(really|quite|rather|somewhat|fairly|pretty)\b/gi,
+  /\b(actually|literally|obviously|clearly|certainly|definitely)\b/gi,
+  /\byou know\b/gi,
+  /\bi mean\b/gi,
+  /\bas i said\b/gi,
+  /\bas mentioned\b/gi,
+  /\bat the end of the day\b/gi,
+  /\bwhen all is said and done\b/gi,
+  /\bthe fact that\b/gi,
+  /\bit is worth noting that\b/gi,
+  /\bit should be noted that\b/gi,
+  /\bneedless to say\b/gi,
+  /\bas a matter of fact\b/gi,
+  /\bfor all intents and purposes\b/gi,
+  /\bin terms of\b/gi,
+  /\bgoing forward\b/gi,
+  /\bmoving forward\b/gi,
+  /\bat this point in time\b/gi,
+  /\bat the present time\b/gi,
+  /\bfirst and foremost\b/gi,
+  /\blast but not least\b/gi,
+  /\bit goes without saying\b/gi,
+];
+
+/* ----------------------------------------------------------------
+   3. PHRASE COMPRESSIONS
+   Long verbose constructions → concise equivalents.
+   Applied early so subsequent steps operate on shorter text.
+---------------------------------------------------------------- */
+const COMPRESSIONS = [
+  [/\bdue to the fact that\b/gi,          'because'],
+  [/\bin the event that\b/gi,             'if'],
+  [/\bfor the purpose of\b/gi,            'to'],
+  [/\bat this point in time\b/gi,         'now'],
+  [/\bprior to\b/gi,                      'before'],
+  [/\bsubsequent to\b/gi,                 'after'],
+  [/\bin the near future\b/gi,            'soon'],
+  [/\ba large number of\b/gi,             'many'],
+  [/\ba small number of\b/gi,             'few'],
+  [/\bin spite of the fact that\b/gi,     'although'],
+  [/\bregardless of the fact that\b/gi,   'although'],
+  [/\bin close proximity to\b/gi,         'near'],
+  [/\bwith the exception of\b/gi,         'except'],
+  [/\bwith reference to\b/gi,             'about'],
+  [/\bwith regards to\b/gi,               'about'],
+  [/\bin regard to\b/gi,                  'about'],
+  [/\bwith respect to\b/gi,               'about'],
+  [/\bin addition to\b/gi,                'and'],
+  [/\bby means of\b/gi,                   'by'],
+  [/\bon a regular basis\b/gi,            'regularly'],
+  [/\bhas the ability to\b/gi,            'can'],
+  [/\bis able to\b/gi,                    'can'],
+  [/\bwill be able to\b/gi,               'will'],
+  [/\bmake use of\b/gi,                   'use'],
+  [/\btake into consideration\b/gi,       'consider'],
+  [/\bcome to a conclusion\b/gi,          'conclude'],
+  [/\bgive consideration to\b/gi,         'consider'],
+  [/\bbrings to light\b/gi,               'shows'],
+  [/\btake advantage of\b/gi,             'use'],
+  [/\ba number of\b/gi,                   'several'],
+  [/\bin the process of\b/gi,             'while'],
+  [/\bfor the reason that\b/gi,           'because'],
+  [/\bin the majority of cases\b/gi,      'usually'],
+  [/\bhas been shown to\b/gi,             'shows'],
+  [/\bIt is important to note that\b/gi,  ''],
+];
+
+/* ----------------------------------------------------------------
+   4. ADJECTIVES / ADVERBS to strip (Aggressive only)
+   These intensifiers rarely change the core meaning.
+---------------------------------------------------------------- */
+const ADJ_ADV = [
+  /\b(amazing|incredible|excellent|outstanding|exceptional|wonderful|fantastic|terrific|tremendous|extraordinary|remarkable|phenomenal|spectacular|astonishing)\b/gi,
+  /\b(simply|merely|purely|solely)\b/gi,
+  /\b(very|extremely|highly|greatly|significantly|considerably|substantially|immensely|enormously)\b/gi,
+];
+
+/* ----------------------------------------------------------------
+   5. EXAMPLE TEXT (pre-loaded on first run)
+   A realistic verbose SOC analyst prompt — demonstrates all modes.
+---------------------------------------------------------------- */
+const EXAMPLE_TEXT = `So basically, in order to really understand the full scope of what we are dealing with here, I wanted to ask you to help me investigate this security alert that has been triggered in our Elastic SIEM environment. The alert is essentially related to what appears to be a lateral movement detection rule that has fired, and it is actually showing a very large number of failed authentication attempts — specifically around 847 failed login events within a 60-second window — which is kind of indicating a potential brute force attack originating from an internal IP address, which is 10.4.22.31, targeting our domain controller at 192.168.1.10. It should be noted that this particular source IP address has not been seen before in our environment, which is actually quite concerning. Moving forward, I would really like to understand what the most likely root cause of this could be, what steps our SOC team should take to triage and investigate this alert, whether this could potentially be a false positive, and what kind of containment actions we should really be thinking about if this turns out to be a genuine threat. Also, for all intents and purposes, it goes without saying that we need to act quickly here as this could be an active intrusion.`;
+
+/* ----------------------------------------------------------------
+   6. MODEL PRICING (USD per 1 million input tokens)
+   Updated pricing as of Q1 2026 — used for cost calculator.
+---------------------------------------------------------------- */
+const MODEL_PRICING = {
+  '2.50':  { label: 'GPT-4o',          usd: 2.50  },
+  '10.00': { label: 'GPT-4 Turbo',     usd: 10.00 },
+  '3.00':  { label: 'Claude Sonnet',   usd: 3.00  },
+  '0.80':  { label: 'Claude Haiku',    usd: 0.80  },
+  '1.25':  { label: 'Gemini 1.5 Pro',  usd: 1.25  },
+  '0.075': { label: 'Gemini Flash',    usd: 0.075 },
+};
+
+/* ================================================================
+   CODE BLOCK PROTECTION
+   Fenced code blocks and inline code are extracted before any
+   transformation and restored afterward — they are never modified.
+================================================================ */
+
+function protectCodeBlocks(text) {
+  const map = {};
+  let n = 0;
+  let r = text;
+  // Fenced code blocks (```...```)
+  r = r.replace(/```[\s\S]*?```/gm, m => {
+    const tok = `__CODE${n++}__`; map[tok] = m; return tok;
+  });
+  // Inline code (`...`)
+  r = r.replace(/`[^`\n]+`/g, m => {
+    const tok = `__CODE${n++}__`; map[tok] = m; return tok;
+  });
+  return { text: r, map };
+}
+
+function restoreCodeBlocks(text, map) {
+  let r = text;
+  for (const [tok, val] of Object.entries(map)) r = r.split(tok).join(val);
+  return r;
+}
+
+/* Detect whether input contains code or JSON content */
+function detectContentType(text) {
+  const t = text.trim();
+  if (/```[\s\S]*?```/m.test(t)) return 'code';
+  if (/^[{\[][\s\S]*[}\]]$/s.test(t)) return 'json';
+  if (/`[^`\n]+`/.test(t)) return 'code';
+  // High density of code-like characters (brackets, operators)
+  const codeChars = (t.match(/[{}[\]();=><]/g) || []).length;
+  if (codeChars / t.length > 0.06) return 'code';
+  return 'text';
+}
+
+/* ================================================================
+   STRUCTURE MODE — ENTITY PROTECTION
+   Named entities (IPs, versions, ports, large numbers) are
+   tokenised before any transformation so they survive stripping.
+================================================================ */
+
+function protectEntities(text) {
+  const map = {}; let n = 0; let r = text;
+  r = r.replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:\/\d{1,2})?\b/g, m => {
+    const t = '__E'+n+'__'; n++; map[t] = m; return t;
+  });
+  r = r.replace(/\bv?\d+\.\d+(?:\.\d+)*\b/g, m => {
+    const t = '__E'+n+'__'; n++; map[t] = m; return t;
+  });
+  r = r.replace(/:\d{2,5}\b/g, m => {
+    const t = '__E'+n+'__'; n++; map[t] = m; return t;
+  });
+  r = r.replace(/\b\d{3,}\b/g, m => {
+    const t = '__E'+n+'__'; n++; map[t] = m; return t;
+  });
+  return { text: r, map };
+}
+
+function restoreEntities(text, map) {
+  let r = text;
+  for (const [tok, val] of Object.entries(map)) r = r.split(tok).join(val);
+  return r;
+}
+
+/* ================================================================
+   STRUCTURE MODE — SENTENCE CLASSIFICATION
+   Question detection is deliberately strict — sentences must
+   explicitly ask for information, not merely contain question words.
+================================================================ */
+
+const URGENCY_WORDS = [
+  /\b(urgent|urgently|asap|immediately|right away)\b/i,
+  /\bact quickly\b/i,
+  /\bactive intrusion\b/i,
+  /\bcritical(ly)?\b/i,
+  /\bemergency\b/i,
+  /\boutage\b/i,
+  /\bproduction.down\b/i,
+  /\btime.sensitive\b/i,
+];
+
+// FACT_INDICATORS only match when there is real measurable data.
+// Deliberately excludes phrase-only patterns like "source IP address"
+// which would incorrectly classify context sentences as facts.
+const FACT_INDICATORS = [
+  /\b__E\d+__\b/,                                    // any protected entity (IP, number, version)
+  /\b(in|within)\s+\d+\s*(second|minute|hour|ms)/i, // timeframe with number
+  /\b(port|protocol|service)\s*:?\s*\d+/i,           // port/service with number
+  /\b(cpu|memory|disk|ram)\s+\d+\s*%/i,              // resource metric with number
+  /\b\d+\s*%\s*(of|utilisation|usage|capacity)/i,    // percentage metric
+];
+
+function isUrgency(s)  { return URGENCY_WORDS.some(p => p.test(s)); }
+function isFact(s)     { return FACT_INDICATORS.some(p => p.test(s)); }
+
+// Strict question detection — don't classify context sentences that
+// happen to contain "what" or "understand" as questions.
+function isQuestion(s) {
+  const t = s.trim();
+  if (/\?$/.test(t)) return true;
+  if (/^(What|How|Why|When|Where|Which|Who|Whether|Is|Are|Can|Could|Should|Would)\b/i.test(t)) return true;
+  if (/\bwould\s+(?:really\s+)?like\s+to\s+understand\b/i.test(t)) return true;
+  if (/\bplease\s+(?:explain|clarify|advise|help)\b/i.test(t)) return true;
+  return false;
+}
+
+/* Split a compound question sentence into individual questions.
+   "I'd like to understand X, Y, and Z" → ['X?', 'Y?', 'Z?']         */
+function extractSubQuestions(sent) {
+  const clauses = [];
+  const qPat = /\b(what|whether|how|when|where|which|who)\s+[^,;.?]+/gi;
+  let m;
+  while ((m = qPat.exec(sent)) !== null) {
+    const clause = m[0].trim().replace(/\s+and\s*$/, '').trim();
+    if (clause.split(/\s+/).length >= 3) clauses.push(clause);
+  }
+  if (clauses.length > 0) {
+    return clauses.map(c => {
+      const { text: pc, map: cm } = protectEntities(c);
+      const compressed = restoreEntities(compressLine(pc), cm);
+      return trimQuestion(compressed.charAt(0).toUpperCase() + compressed.slice(1));
+    });
+  }
+  // No sub-clauses — compress the whole sentence
+  const { text: ps, map: sm } = protectEntities(sent);
+  return [trimQuestion(restoreEntities(compressLine(ps), sm))];
+}
+
+/* Strip dangling prepositions/conjunctions at the end of a question
+   and ensure it ends with ?                                           */
+function trimQuestion(q) {
+  return q
+    .replace(/\s+(?:of|to|from|with|at|by|in|on|about|for|and|or)\s*\??$/, '?')
+    .replace(/\??$/, '?');
+}
+
+/* Strip transition words at the start of urgency lines               */
+function trimUrgency(text) {
+  return text
+    .replace(/^(Also|Furthermore|Moreover|Additionally|Besides|Finally)[,.]?\s*/i, '')
+    .trim();
+}
+
+/* Compress a single line for structure output — strip stopwords
+   but always preserve entity tokens and PROTECTED prepositions.  */
+function compressLine(line) {
+  let r = compressPhrases(line);
+  r = removeFillers(r);
+  const words = r.trim().split(/\s+/);
+  if (words.length > 4) {
+    r = words.filter((w, i) => {
+      if (i === 0) return true;
+      if (/^__E\d+__$/.test(w)) return true;
+      const clean = w.toLowerCase().replace(/[^a-z]/g, '');
+      if (PROTECTED.has(clean)) return true;
+      return !STOPWORDS.has(clean) || clean === '';
+    }).join(' ');
+  }
+  return r.replace(/^[,;:\s]+/, '').replace(/\s+([.,;:!?])/g, '$1').trim();
+}
+
+/* ================================================================
+   STRUCTURE MODE — SECURITY / SIEM FACT EXTRACTOR
+================================================================ */
+
+// Canonical display names for known products/acronyms
+const PRODUCT_NAMES = {
+  'elastic siem':       'Elastic SIEM',
+  'elastic security':   'Elastic Security',
+  'elastic':            'Elastic',
+  'splunk':             'Splunk',
+  'qradar':             'IBM QRadar',
+  'ibm qradar':         'IBM QRadar',
+  'sentinel':           'Microsoft Sentinel',
+  'microsoft sentinel': 'Microsoft Sentinel',
+  'crowdstrike':        'CrowdStrike',
+  'darktrace':          'Darktrace',
+  'exabeam':            'Exabeam',
+  'logrhythm':          'LogRhythm',
+  'palo alto':          'Palo Alto Networks',
+  'fortinet':           'Fortinet',
+  'cisco asa':          'Cisco ASA',
+  'checkpoint':         'Check Point',
+  'sonicwall':          'SonicWall',
+  'arcsight':           'ArcSight',
+  'sumo logic':         'Sumo Logic',
+};
+
+const ALERT_TYPES = [
+  'lateral movement', 'brute force', 'privilege escalation',
+  'data exfiltration', 'ransomware', 'phishing', 'malware infection',
+  'ddos', 'dos attack', 'port scan', 'credential stuffing',
+  'sql injection', 'command injection', 'insider threat',
+  'anomalous login', 'authentication failure', 'account compromise',
+];
+
+function extractSecurityFacts(fullText) {
+  const lower = fullText.toLowerCase();
+
+  // Product — longest match first to prefer "elastic siem" over "elastic"
+  const sortedProducts = Object.keys(PRODUCT_NAMES).sort((a,b) => b.length - a.length);
+  const productKey = sortedProducts.find(p => lower.includes(p)) || null;
+  const product = productKey ? PRODUCT_NAMES[productKey] : null;
+
+  // Alert type
+  const alertType = ALERT_TYPES.find(at => lower.includes(at)) || null;
+
+  // IP addresses (from original, before entity protection)
+  const ips = [...new Set(fullText.match(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g) || [])];
+
+  // Event count + timeframe — greedy capture
+  let eventSummary = null;
+  const evMatch = fullText.match(
+    /(\d{2,})\s*(?:failed\s+)?(?:login|auth\w*|attempt\w*|event\w*|connection\w*)[^.!?]*?(?:in|within)\s*(?:a\s+)?(\d+)[- ]?(?:second|minute|hour|ms)\w*\s*(?:window)?/i
+  );
+  if (evMatch) {
+    eventSummary = evMatch[0].trim();
+  } else {
+    const fb = fullText.match(/(\d{2,})\s*(?:failed\s+)?(?:login|auth\w*|attempt\w*|event\w*)/i);
+    if (fb) eventSummary = fb[0].trim();
+  }
+
+  // Notes
+  const notes = [];
+  const firstSeen = /not\s+(?:been\s+)?(?:previously\s+)?seen\s+before|not\s+previously\s+seen|first\s+(?:time|occurrence)/i.test(fullText);
+  if (firstSeen && ips.length) notes.push('Source IP not previously seen in environment');
+  if (/internal\s+ip|private\s+ip|rfc.?1918/i.test(fullText) && ips.length) notes.push('Source is internal / private address');
+  if (/domain\s+controller\b/i.test(fullText)) notes.push('Target identified as domain controller');
+
+  return { product, alertType, ips, eventSummary, notes };
+}
+
+/* ================================================================
+   STRUCTURE MODE — MASTER REWRITE ENGINE
+================================================================ */
+
+function structureRewrite(text, domain) {
+  const cleaned = cleanWhitespace(text);
+
+  // ── CRITICAL: protect entities BEFORE splitting into sentences ──
+  // IP addresses contain dots (10.4.22.31) that would be treated as
+  // sentence boundaries. Tokenise them first so splitting is safe.
+  const { text: protectedFull, map: fullEntityMap } = protectEntities(cleaned);
+
+  // Split on the protected text — entity tokens contain no dots
+  const protectedSentences = (protectedFull.match(/[^.!?]+[.!?]*/g) || [protectedFull])
+    .map(s => s.trim())
+    .filter(s => s.length > 8);
+
+  // Restore entities to get original sentences for classification
+  const originalSentences = protectedSentences.map(s => restoreEntities(s, fullEntityMap));
+
+  // Classify each sentence from restored original text.
+  // Use protected version for isFact (entity tokens trigger fact patterns).
+  const questions = [], urgency = [], facts = [], context = [];
+  for (let i = 0; i < protectedSentences.length; i++) {
+    const orig = originalSentences[i];
+    const prot = protectedSentences[i];
+    if      (isUrgency(orig))   urgency.push(orig);
+    else if (isQuestion(orig))  questions.push(orig);
+    else if (isFact(prot))      facts.push(orig);
+    else                        context.push(orig);
+  }
+
+  const sections = [];
+
+  /* ── Security / SIEM ── */
+  if (domain === 'security') {
+    const sf = extractSecurityFacts(cleaned);
+    const block = ['[ALERT]'];
+    if (sf.product)       block.push('Platform : ' + sf.product);
+    if (sf.alertType)     block.push('Type     : ' + sf.alertType.replace(/\b\w/g, c => c.toUpperCase()));
+    if (sf.ips[0])        block.push('Source   : ' + sf.ips[0]);
+    if (sf.ips[1])        block.push('Target   : ' + sf.ips[1]);
+    if (sf.eventSummary)  block.push('Events   : ' + sf.eventSummary);
+    sf.notes.forEach(n => block.push('Note     : ' + n));
+
+    // Only add extra fact sentences that contain real data (have entity tokens)
+    // and are not already represented in the block above.
+    const coveredIPs = new Set(sf.ips);
+    facts
+      .filter(f => {
+        // Must contain a large number or IP (real data, not just a phrase)
+        const { text: pf } = protectEntities(f);
+        if (!isFact(pf)) return false;
+        // Skip if it contains an IP already shown
+        if ((f.match(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g) || []).some(ip => coveredIPs.has(ip))) return false;
+        // Skip if it contains the event count already shown
+        if (sf.eventSummary) {
+          const countNum = (sf.eventSummary.match(/\d{2,}/) || [''])[0];
+          if (countNum && f.includes(countNum)) return false;
+        }
+        return true;
+      })
+      .slice(0, 1)
+      .forEach(f => {
+        const { text: pf, map: fm } = protectEntities(f);
+        const compressed = restoreEntities(compressLine(pf), fm);
+        if (compressed.split(/\s+/).length >= 4) block.push('Note     : ' + compressed);
+      });
+
+    sections.push(block.join('\n'));
+
+    // ASK — extract sub-questions from each question sentence
+    if (questions.length) {
+      const askLines = ['[ASK]'];
+      questions.forEach(q => {
+        extractSubQuestions(q).forEach(sub => askLines.push('• ' + sub));
+      });
+      sections.push(askLines.join('\n'));
+    }
+
+    // PRIORITY
+    if (urgency.length) {
+      const { text: pu, map: um } = protectEntities(urgency.join(' '));
+      sections.push('[PRIORITY] ' + trimUrgency(restoreEntities(compressLine(pu), um)));
+    }
+
+  /* ── Generic domains ── */
+  } else {
+    const lbl = {
+      general:  { ctx: '[CONTEXT]',     req: '[REQUEST]'  },
+      devops:   { ctx: '[ENVIRONMENT]', req: '[ISSUE]'    },
+      business: { ctx: '[BACKGROUND]',  req: '[OBJECTIVE]'},
+      legal:    { ctx: '[MATTER]',      req: '[QUESTION]' },
+    }[domain] || { ctx: '[CONTEXT]', req: '[REQUEST]' };
+
+    const ctxItems = [...context, ...facts].slice(0, 5).map(s => {
+      const { text: ps, map: sm } = protectEntities(s);
+      return restoreEntities(compressLine(ps), sm);
+    }).filter(s => s.length > 8);
+
+    if (ctxItems.length) {
+      sections.push([lbl.ctx, ...ctxItems.map(s => '• ' + s)].join('\n'));
+    }
+    if (questions.length) {
+      const qLines = [lbl.req];
+      questions.forEach(q => {
+        extractSubQuestions(q).forEach(sub => qLines.push('• ' + sub));
+      });
+      sections.push(qLines.join('\n'));
+    }
+    if (urgency.length) {
+      const { text: pu, map: um } = protectEntities(urgency.join(' '));
+      sections.push('[PRIORITY] ' + trimUrgency(restoreEntities(compressLine(pu), um)));
+    }
+  }
+
+  return cleanWhitespace(sections.join('\n\n'));
+}
+
+/* ----------------------------------------------------------------
+   TOKEN ESTIMATOR
+   Uses two heuristics and returns their average for a range estimate.
+     • Char method:  1 token ≈ 4 chars  (GPT-like BPE average)
+     • Word method:  1 token ≈ 0.75 words
+---------------------------------------------------------------- */
+function estimateTokens(text) {
+  if (!text || !text.trim()) return 0;
+  const byChar = Math.ceil(text.length / 4);
+  const byWord = Math.ceil(text.trim().split(/\s+/).filter(Boolean).length * 0.75);
+  return Math.round((byChar + byWord) / 2);
+}
+
+/* ================================================================
+   TRANSFORMATION FUNCTIONS
+================================================================ */
+
+/* Step 1 — Normalise whitespace */
+function cleanWhitespace(text) {
+  return text
+    .replace(/\r\n/g, '\n')         // Windows → Unix line endings
+    .replace(/\t/g, ' ')            // Tabs to spaces
+    .replace(/[ \t]+/g, ' ')        // Collapse multiple spaces/tabs
+    .replace(/\n{3,}/g, '\n\n')     // Max two consecutive newlines
+    .replace(/^[ \t]+|[ \t]+$/gm, '') // Trim spaces/tabs from each line (NOT \n)
+    .trim();
+}
+
+/* Step 2 — Replace long phrases with concise equivalents */
+function compressPhrases(text) {
+  let r = text;
+  for (const [pat, rep] of COMPRESSIONS) r = r.replace(pat, rep);
+  return r;
+}
+
+/* Step 3 — Remove filler phrases
+   After stripping fillers we fix artefacts:
+   "Basically, in order to..." → ", in order to..." → "in order to..."
+   Patterns:  sentence-start comma, double-comma, space-before-punct */
+function removeFillers(text) {
+  let r = text;
+  for (const pat of FILLERS) r = r.replace(pat, '');
+  // Remove leading comma+space at the very start of a sentence
+  // e.g. ", understand the scope" → "understand the scope"
+  r = r.replace(/([.!?]\s+),\s*/g, '$1');   // After full stop: ". , word" → ". word"
+  r = r.replace(/^,\s*/gm, '');             // Line-start comma
+  r = r.replace(/,\s*,/g, ',');             // Double commas collapsed
+  r = r.replace(/\s{2,}/g, ' ');
+  r = r.replace(/\s+([.,;:!?])/g, '$1');
+  return r;
+}
+
+/* Step 4 — Remove stopwords (Medium+)
+   Preserves first word of each line (often the subject).
+   Skips very short lines and existing bullet points.
+   NEVER removes PROTECTED prepositions — they glue phrases. */
+function removeStopwords(text) {
+  return text.split('\n').map(line => {
+    const words = line.trim().split(/\s+/);
+    if (words.length <= 4 || /^[•\-\*]/.test(line.trim())) return line;
+    return words
+      .filter((w, i) => {
+        if (i === 0) return true; // Keep first word (subject)
+        const clean = w.toLowerCase().replace(/[^a-z]/g, '');
+        if (PROTECTED.has(clean)) return true; // Never strip structural prepositions
+        return !STOPWORDS.has(clean) || clean === '';
+      })
+      .join(' ');
+  }).join('\n');
+}
+
+/* Step 5 — Remove duplicate sentences (Medium+)
+   Normalises sentences before comparing so minor punctuation
+   differences don't cause false misses. */
+function dedupSentences(text) {
+  // Split on sentence boundaries (period, exclamation, question)
+  const parts = text.match(/[^.!?]+[.!?]*/g) || [text];
+  const seen = new Set();
+  const kept = [];
+  for (const part of parts) {
+    // Normalised key: lowercase, strip non-alpha
+    const key = part.trim().toLowerCase()
+      .replace(/[^a-z0-9\s]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      kept.push(part.trim());
+    }
+  }
+  return kept.join(' ');
+}
+
+/* Step 6 — Strip adjectives and adverbs (Aggressive) */
+function stripAdjAdv(text) {
+  let r = text;
+  for (const pat of ADJ_ADV) r = r.replace(pat, '');
+  return r.replace(/\s{2,}/g, ' ').replace(/\s+([.,;:!?])/g, '$1');
+}
+
+/* Step 7 — Convert long paragraphs to bullet points (Aggressive)
+   Only converts paragraphs with 3+ sentences to avoid
+   mangling short blocks of text. */
+function bulletify(text) {
+  return text.split(/\n\n+/).map(para => {
+    const sents = para.match(/[^.!?]+[.!?]*/g);
+    if (!sents || sents.length < 3) return para;
+    return sents
+      .map(s => s.trim())
+      .filter(s => s.length > 5)
+      .map(s => `• ${s}`)
+      .join('\n');
+  }).join('\n\n');
+}
+
+/* Step 8 — Post-processing sweep (always runs last, before final trim)
+   Fixes three artefact classes produced by aggressive stripping:
+
+   A) Leading punctuation on bullets:  "• , word" → "• word"
+   B) Leading punctuation on plain lines: ", word" → "word"
+   C) Orphan fragments: bullet points under 5 words are dropped —
+      they are usually subject-stripped sentences with no meaning left.
+*/
+function postClean(text) {
+  return text
+    .split('\n')
+    .map(line => {
+      const trimmed = line.trim();
+      if (/^•/.test(trimmed)) {
+        // Strip any leading punctuation after the bullet marker
+        return trimmed.replace(/^•\s*[,;:\-–—\s]+/, '• ').trimEnd();
+      }
+      // Strip leading punctuation from regular lines
+      return trimmed.replace(/^[,;:\-–—\s]+/, '').trimEnd();
+    })
+    .filter(line => {
+      const trimmed = line.trim();
+      if (!trimmed) return false;
+      // Drop bullet fragments shorter than 5 words (orphaned subjects stripped away)
+      if (/^•/.test(trimmed)) {
+        const wordCount = trimmed.replace(/^•\s*/, '').split(/\s+/).filter(Boolean).length;
+        return wordCount >= 5;
+      }
+      return true;
+    })
+    .join('\n');
+}
+
+/* ================================================================
+   MASTER OPTIMISER
+   Chains transformations in the right order for each mode.
+   Code blocks are protected before transforms and restored after
+   so they are never touched regardless of mode.
+================================================================ */
+function optimise(text, mode, opts) {
+  if (!text.trim()) return text;
+
+  // Structure mode — completely different pipeline
+  if (mode === 'structure') {
+    const domain = document.getElementById('domain-sel').value;
+    return structureRewrite(text, domain);
+  }
+
+  let r = text;
+
+  // ── Protect code blocks BEFORE any transforms ────────────────
+  const { text: noCode, map: codeMap } = protectCodeBlocks(r);
+  r = noCode;
+
+  // Always: normalise whitespace first
+  r = cleanWhitespace(r);
+
+  // Phrase compression (Light+)
+  if (opts.compress) r = compressPhrases(r);
+
+  // Filler removal (Light+)
+  if (opts.fillers)  r = removeFillers(r);
+
+  // Medium & Aggressive only
+  if (mode === 'medium' || mode === 'aggressive') {
+    if (opts.stop)  r = removeStopwords(r);
+    if (opts.dedup) r = dedupSentences(r);
+  }
+
+  // Aggressive only
+  if (mode === 'aggressive') {
+    if (opts.adjadv)  r = stripAdjAdv(r);
+    if (opts.bullets) r = bulletify(r);
+  }
+
+  // Post-processing sweep
+  r = postClean(r);
+
+  // ── Restore code blocks AFTER all transforms ─────────────────
+  r = restoreCodeBlocks(r, codeMap);
+
+  return cleanWhitespace(r);
+}
+
+/* ================================================================
+   DIFF GENERATOR
+   Word-level diff: words present in original but absent in
+   the optimised output are highlighted with strikethrough.
+   Uses a Set lookup — intentionally approximate (fast, visual).
+================================================================ */
+function buildDiff(original, optimised) {
+  if (!optimised.trim()) {
+    return '<div class="diff-empty">Run optimisation to see diff</div>';
+  }
+
+  // Build lookup set of words in optimised output
+  const optSet = new Set(
+    optimised.toLowerCase()
+      .split(/\s+/)
+      .map(w => w.replace(/[^a-z0-9]/g, ''))
+      .filter(Boolean)
+  );
+
+  // Tokenise original into words + whitespace spans
+  const tokens = original.split(/(\s+)/);
+
+  return tokens.map(tok => {
+    if (/^\s+$/.test(tok)) return tok.replace(/\n/g, '<br>');
+    const clean = tok.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (clean && !optSet.has(clean)) {
+      return `<del class="gone">${esc(tok)}</del>`;
+    }
+    return esc(tok);
+  }).join('');
+}
+
+/* ================================================================
+   UTILITIES
+================================================================ */
+
+/** Escape HTML special characters */
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/** Format large numbers with commas */
+function fmt(n) { return n.toLocaleString(); }
+
+/** Show a brief toast message */
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+/* ================================================================
+   APP STATE
+================================================================ */
+let mode        = 'light';  // Current optimisation mode
+let optimised   = '';       // Last optimised text (for copy/export)
+let isCodeInput = false;    // True when code/JSON detected in input
+
+/* ================================================================
+   READ UI OPTIONS
+================================================================ */
+function getOpts() {
+  return {
+    fillers:  document.getElementById('opt-fillers').checked,
+    compress: document.getElementById('opt-compress').checked,
+    stop:     document.getElementById('opt-stop').checked,
+    dedup:    document.getElementById('opt-dedup').checked,
+    adjadv:   document.getElementById('opt-adjadv').checked,
+    bullets:  document.getElementById('opt-bullets').checked,
+  };
+}
+
+/* ================================================================
+   SYNC TOGGLE AVAILABILITY
+   Medium-only and Aggressive-only options are dimmed when
+   the selected mode won't apply them. All toggles are dimmed
+   in Structure mode (which has its own pipeline entirely).
+   Destructive transforms (stopwords, adj/adv, bullets) are also
+   dimmed when code or JSON is detected in the input.
+================================================================ */
+function syncToggles(m) {
+  const isStruct = m === 'structure';
+
+  ['tog-fillers','tog-compress'].forEach(id =>
+    document.getElementById(id).classList.toggle('dim', isStruct)
+  );
+  // Stopword/dedup: off in Light, Structure, or when code input
+  ['tog-stop','tog-dedup'].forEach(id =>
+    document.getElementById(id).classList.toggle('dim', m === 'light' || isStruct || isCodeInput)
+  );
+  // Aggressive-only: off unless aggressive AND no code input
+  ['tog-adjadv','tog-bullets'].forEach(id =>
+    document.getElementById(id).classList.toggle('dim', m !== 'aggressive' || isCodeInput)
+  );
+
+  document.getElementById('domain-row').classList.toggle('show', isStruct);
+}
+
+/* ================================================================
+   COST CALCULATOR
+   Converts token counts to USD using selected model pricing.
+   Shows per-query cost and daily saving estimate (200 queries).
+================================================================ */
+function updateCostEstimate(tokBefore, tokAfter) {
+  const pricePerM = parseFloat(document.getElementById('model-sel').value);
+  if (!pricePerM || !tokBefore) {
+    ['c-before','c-after','c-daily','c-monthly'].forEach(id =>
+      document.getElementById(id).textContent = '—'
+    );
+    return;
+  }
+
+  const costBefore = (tokBefore / 1_000_000) * pricePerM;
+  const costAfter  = (tokAfter  / 1_000_000) * pricePerM;
+  const saved      = costBefore - costAfter;
+  const dailySaved = saved * 200;
+  const monthlySaved = dailySaved * 30;
+
+  const f = (n, dp = 4) => n < 0.0001
+    ? '<$0.0001'
+    : '$' + n.toFixed(dp).replace(/\.?0+$/, '');
+
+  document.getElementById('c-before').textContent = f(costBefore, 5);
+  document.getElementById('c-after').textContent  = f(costAfter, 5);
+  document.getElementById('c-daily').textContent  = f(dailySaved, 2);
+  document.getElementById('c-monthly').textContent = f(monthlySaved, 2) + ' per month';
+  document.getElementById('c-before-day').textContent = 'per query unoptimised';
+  document.getElementById('c-after-day').textContent  = 'per query optimised';
+}
+
+/* ================================================================
+   LIVE INPUT COUNTER + SIZE WARNING + CODE DETECTION
+================================================================ */
+function refreshInputCount() {
+  const text = document.getElementById('input-text').value;
+  const tok  = estimateTokens(text);
+  document.getElementById('in-count').textContent =
+    `${fmt(text.length)} chars · ~${fmt(tok)} tokens`;
+
+  // Size warning at 10,000 chars
+  document.getElementById('size-warn').classList.toggle('show', text.length > 10_000);
+
+  // Code / JSON detection badge + auto-disable destructive transforms
+  const contentType = detectContentType(text);
+  isCodeInput = contentType !== 'text';
+  const badge = document.getElementById('code-badge');
+  badge.classList.toggle('show', isCodeInput);
+  badge.lastChild.textContent = contentType === 'json'
+    ? ' JSON detected — transforms limited'
+    : ' Code detected — transforms limited';
+
+  // Re-sync toggles so destructive ones dim/undim based on new isCodeInput
+  syncToggles(mode);
+}
+
+/* ================================================================
+   RUN OPTIMISATION
+================================================================ */
+function runOptimise() {
+  const input = document.getElementById('input-text').value;
+  if (!input.trim()) { toast('Paste some text first!'); return; }
+
+  // Hard cap at 50,000 chars
+  if (input.length > 50_000) {
+    toast('Input too large (>50k chars). Please trim before optimising.');
+    return;
+  }
+
+  optimised = optimise(input, mode, getOpts());
+
+  // ── Output textarea ──────────────────────────────────────────
+  document.getElementById('output-text').value = optimised;
+
+  const tokBefore = estimateTokens(input);
+  const tokAfter  = estimateTokens(optimised);
+  const saved     = tokBefore - tokAfter;
+  const pct       = tokBefore > 0 ? Math.round((saved / tokBefore) * 100) : 0;
+
+  // ── Out count ───────────────────────────────────────────────
+  document.getElementById('out-count').textContent =
+    `${fmt(optimised.length)} chars · ~${fmt(tokAfter)} tokens`;
+
+  // ── Stats ───────────────────────────────────────────────────
+  document.getElementById('s-before').textContent = fmt(tokBefore);
+  document.getElementById('s-before-c').textContent = `${fmt(input.length)} characters`;
+  document.getElementById('s-after').textContent  = fmt(tokAfter);
+  document.getElementById('s-after-c').textContent  = `${fmt(optimised.length)} characters`;
+  document.getElementById('s-pct').textContent    = `${pct}%`;
+  document.getElementById('s-saved').textContent  = fmt(saved);
+
+  // ── Cost calculator ──────────────────────────────────────────
+  updateCostEstimate(tokBefore, tokAfter);
+
+  // ── Warning banner ────────────────────────────────────────────
+  // Structure mode intentionally produces high compression — suppress warning.
+  // For other modes, warn if reduction exceeds 40%.
+  const showWarn = mode !== 'structure' && pct > 40;
+  document.getElementById('warn-banner').classList.toggle('show', showWarn);
+
+  // ── Diff view ────────────────────────────────────────────────
+  if (mode === 'structure') {
+    document.getElementById('diff-box').innerHTML =
+      '<div style="padding:1rem;font-family:var(--font);font-size:.82rem;color:var(--text-2);line-height:1.7;">' +
+      '<strong style="color:var(--text);">Diff not available in Structure mode.</strong><br>' +
+      'Structure mode completely rewrites the format into labelled sections — it doesn\'t strip words ' +
+      'from the original, so a word-level diff would be misleading. ' +
+      'Compare the Input and Output panels directly to review what changed.' +
+      '</div>';
+  } else {
+    document.getElementById('diff-box').innerHTML = buildDiff(input, optimised);
+  }
+
+  // ── Enable action buttons ────────────────────────────────────
+  document.getElementById('btn-copy').disabled   = false;
+  document.getElementById('btn-export').disabled = false;
+}
+
+/* ================================================================
+   COPY TO CLIPBOARD
+================================================================ */
+function copyOutput() {
+  if (!optimised) return;
+  navigator.clipboard.writeText(optimised)
+    .then(() => toast('✓ Copied to clipboard'))
+    .catch(() => {
+      // Fallback for browsers without clipboard API
+      const ta = document.getElementById('output-text');
+      ta.select();
+      document.execCommand('copy');
+      toast('✓ Copied!');
+    });
+}
+
+/* ================================================================
+   EXPORT AS .TXT
+================================================================ */
+function exportTxt() {
+  if (!optimised) return;
+  const blob = new Blob([optimised], { type: 'text/plain' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'token-optimised.txt';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('✓ Downloaded');
+}
+
+/* ================================================================
+   RESET
+================================================================ */
+function reset() {
+  document.getElementById('input-text').value  = '';
+  document.getElementById('output-text').value = '';
+  document.getElementById('diff-box').innerHTML =
+    '<div class="diff-empty">Run optimisation to see diff</div>';
+  document.getElementById('in-count').textContent  = '0 chars · ~0 tokens';
+  document.getElementById('out-count').textContent = '0 chars · ~0 tokens';
+  ['s-before','s-after','s-pct','s-saved'].forEach(id =>
+    document.getElementById(id).textContent = '—'
+  );
+  document.getElementById('s-before-c').textContent = '0 characters';
+  document.getElementById('s-after-c').textContent  = '0 characters';
+  document.getElementById('btn-copy').disabled   = true;
+  document.getElementById('btn-export').disabled = true;
+  document.getElementById('warn-banner').classList.remove('show');
+  document.getElementById('code-badge').classList.remove('show');
+  document.getElementById('size-warn').classList.remove('show');
+  ['c-before','c-after','c-daily','c-monthly'].forEach(id =>
+    document.getElementById(id).textContent = '—'
+  );
+  document.getElementById('c-before-day').textContent = 'per query unoptimised';
+  document.getElementById('c-after-day').textContent  = 'per query optimised';
+  optimised = '';
+}
+
+/* ================================================================
+   COMPARE ALL MODES
+   Runs all four modes simultaneously and populates the compare panel.
+================================================================ */
+function compareAllModes() {
+  const input = document.getElementById('input-text').value;
+  if (!input.trim()) { toast('Paste some text first!'); return; }
+  if (input.length > 50_000) { toast('Input too large for compare (>50k chars).'); return; }
+
+  const opts    = getOpts();
+  const tokBefore = estimateTokens(input);
+  const modes   = ['light', 'medium', 'aggressive', 'structure'];
+
+  modes.forEach(m => {
+    const result   = optimise(input, m, opts);
+    const tokAfter = estimateTokens(result);
+    const pct      = tokBefore > 0 ? Math.round(((tokBefore - tokAfter) / tokBefore) * 100) : 0;
+
+    document.getElementById('cmp-ta-' + m).value = result;
+    const statEl = document.getElementById('cmp-stat-' + m);
+    statEl.textContent = `~${fmt(tokAfter)} tokens · ${pct}% saved`;
+    statEl.className   = 'cmp-stat' + (pct >= 20 ? ' good' : '');
+  });
+
+  document.getElementById('compare-panel').classList.add('show');
+  document.getElementById('compare-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function loadExample() {
+  document.getElementById('input-text').value = EXAMPLE_TEXT;
+  refreshInputCount();
+  // Switch to Medium mode to give the best demo experience
+  if (mode !== 'medium') {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector('[data-mode="medium"]').classList.add('active');
+    mode = 'medium';
+    syncToggles(mode);
+  }
+  toast('Example loaded — hit Optimise Tokens to see it in action');
+}
+
+/* ================================================================
+   BOOTSTRAP — wire up all event listeners on DOM ready
+================================================================ */
+document.addEventListener('DOMContentLoaded', () => {
+
+  // ── Restore saved preferences ────────────────────────────────
+  const savedMode   = localStorage.getItem('to-mode')   || 'light';
+  const savedDomain = localStorage.getItem('to-domain') || 'security';
+
+  // Set saved mode
+  document.querySelectorAll('.mode-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === savedMode);
+  });
+  mode = savedMode;
+  syncToggles(mode);
+
+  // Set saved domain
+  const domainEl = document.getElementById('domain-sel');
+  if (domainEl) domainEl.value = savedDomain;
+
+  // ── Mode buttons ────────────────────────────────────────────
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      mode = btn.dataset.mode;
+      syncToggles(mode);
+      localStorage.setItem('to-mode', mode);
+    });
+  });
+
+  // ── Domain selector ─────────────────────────────────────────
+  if (domainEl) {
+    domainEl.addEventListener('change', () => {
+      localStorage.setItem('to-domain', domainEl.value);
+    });
+  }
+
+  // ── Tab switcher ────────────────────────────────────────────
+  document.querySelectorAll('.tab-btn').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('on'));
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('on'));
+      tab.classList.add('on');
+      document.getElementById('tab-' + tab.dataset.tab).classList.add('on');
+    });
+  });
+
+  // ── Live input counter ──────────────────────────────────────
+  document.getElementById('input-text').addEventListener('input', refreshInputCount);
+
+  // ── Model selector → recalculate cost ───────────────────────
+  document.getElementById('model-sel').addEventListener('change', () => {
+    const tokBefore = estimateTokens(document.getElementById('input-text').value);
+    const tokAfter  = estimateTokens(document.getElementById('output-text').value);
+    if (tokBefore) updateCostEstimate(tokBefore, tokAfter);
+  });
+
+  // ── Action buttons ──────────────────────────────────────────
+  document.getElementById('btn-run').addEventListener('click',     runOptimise);
+  document.getElementById('btn-reset').addEventListener('click',   reset);
+  document.getElementById('btn-example').addEventListener('click', loadExample);
+  document.getElementById('btn-copy').addEventListener('click',    copyOutput);
+  document.getElementById('btn-export').addEventListener('click',  exportTxt);
+  document.getElementById('btn-compare').addEventListener('click', compareAllModes);
+  document.getElementById('btn-compare-close').addEventListener('click', () => {
+    document.getElementById('compare-panel').classList.remove('show');
+  });
+
+  // ── Tip banner dismiss ───────────────────────────────────────
+  document.getElementById('tip-close').addEventListener('click', () => {
+    document.getElementById('tip-banner').classList.add('hide');
+    localStorage.setItem('to-tip-dismissed', '1');
+  });
+  // Hide tip if already dismissed
+  if (localStorage.getItem('to-tip-dismissed') === '1') {
+    document.getElementById('tip-banner').classList.add('hide');
+  }
+
+  // ── Keyboard shortcut: Ctrl/Cmd + Enter to optimise ─────────
+  document.getElementById('input-text').addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') runOptimise();
+  });
+});
+</script>
+</body>
+</html>
